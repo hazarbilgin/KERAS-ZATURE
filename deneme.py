@@ -1,15 +1,15 @@
-#tensorboard kullanım
-
+#yazar=hazarbilgin
 import numpy as np
 import matplotlib.pyplot as plt
 import tensorflow as tf
 import keras
 from keras import layers,models, preprocessing
+#gerekli dosyaların bulunduğu dosyalara ulaşma
 train_dir = 'C:\\Users\\Hazar\\xray_dataset_covid19\\train'
 test_dir = 'C:\\Users\\Hazar\\xray_dataset_covid19\\test'
 img_size = (150, 150)
 batch_size = 32
-
+#train edilcek görsellerin elde edilmesi
 train_ds = keras.preprocessing.image_dataset_from_directory(
     train_dir,
     image_size=img_size,
@@ -19,7 +19,7 @@ train_ds = keras.preprocessing.image_dataset_from_directory(
     subset='training',
     seed=123
 )
-
+#validation edilcek görsellerin elde edilmesi
 val_ds = keras.preprocessing.image_dataset_from_directory(
     train_dir,
     image_size=img_size,
@@ -29,7 +29,7 @@ val_ds = keras.preprocessing.image_dataset_from_directory(
     subset='validation',
     seed=123
 )
-
+#test edilcek görsellerin elde edilmesi
 test_ds = tf.keras.preprocessing.image_dataset_from_directory(
     test_dir,
     image_size=img_size,
@@ -40,7 +40,7 @@ test_ds = tf.keras.preprocessing.image_dataset_from_directory(
 train_ds = train_ds.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
 val_ds = val_ds.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
 test_ds = test_ds.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
-
+#modelimizin katmanları sinir ağların oluşturulduğu yer
 model = models.Sequential([
     layers.Conv2D(32, (3, 3), activation='relu', input_shape=(img_size[0], img_size[1], 3)),
     layers.MaxPooling2D(pool_size=(2, 2)),
@@ -52,28 +52,64 @@ model = models.Sequential([
     layers.Dense(128, activation='relu'),
     layers.Dense(1, activation='sigmoid')
 ])
-
+#modelimizi compile etme ve 'adam' optimazasyonu ile optime edilmesi metrik olarak doğruluk 'accuracy' metriği kullanımı
 model.compile(optimizer='adam',
             loss='binary_crossentropy',
             metrics=['accuracy'])
-
+#modelimizi eğitmeye başlanması 10 aşamalık epochsu
 history = model.fit(
     train_ds,
     validation_data=val_ds,
     epochs=10
 )
+#modelin bilgisayara kaydedilmesi
 model.save('pneumonia.h5')
 test_loss, test_acc = model.evaluate(test_ds, verbose=2)
 print("\nTest accuracy:", test_acc)
 
 test_images, test_labels = next(iter(test_ds))
 predictions = model.predict(test_images)
-
+#görüntüleri ekrana verilmesi fonksiyonu plt kütüphanesi ile
 plt.figure(figsize=(10, 10))
 for i in range(9):
     plt.subplot(3, 3, i + 1)
     plt.imshow(test_images[i].numpy().astype("uint8"))
-    plt.title(f"Predicted: {predictions[i][0]:.2f}")
+    plt.title(f"Zature: {predictions[i][0]:.2f}")
     plt.axis('off')
 plt.tight_layout()
 plt.show()
+
+
+#                     ------------------------------------- Yeni resimleri sisteme yükleme--------------------------------#
+
+import tensorflow as tf
+import numpy as np
+import matplotlib.pyplot as plt
+from keras.preprocessing import image
+
+#kaydettiğimiz modeli tekrar  yükleme 
+model_path = 'C:\\Users\\Hazar\\pneumonia.h5'
+model = tf.keras.models.load_model(model_path)
+#yeni çekilcek resimin dosya yolu 
+image_path = 'C:\\Users\\Hazar\\xray_dataset_covid19\\test\\ZATURE\\streptococcus-pneumoniae-pneumonia-temporal-evolution-1-day3.jpg'
+#kullanılcak resmi ön işleme
+def preprocess_image(img_path, img_size=(150, 150)):
+    img = image.load_img(img_path, target_size=img_size)
+    img_array = image.img_to_array(img)
+    img_array = np.expand_dims(img_array, axis=0)  # Expand dimensions to match batch size used during training
+    return img_array
+
+img = preprocess_image(image_path)
+
+predictions = model.predict(img)
+
+prediction = predictions[0][0]
+class_label = 'Pneumonia' if prediction > 0.5 else 'Normal'
+
+plt.figure(figsize=(6, 6))
+plt.imshow(image.load_img(image_path))
+plt.title(f"Predicted: {class_label} ({prediction:.2f})")
+plt.axis('off')
+plt.show()
+
+#yazar=hazarbilgin
