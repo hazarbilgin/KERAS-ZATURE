@@ -104,12 +104,69 @@ img = preprocess_image(image_path)
 predictions = model.predict(img)
 
 prediction = predictions[0][0]
+#yüksek olasılıkla zatureli akciğeri mi tespiti 
 class_label = 'Pneumonia' if prediction > 0.5 else 'Normal'
-
+#yapay zeka modelimizin zatureli hastanın akciğer filminin tespitini ekranda gösterilmesi
 plt.figure(figsize=(6, 6))
 plt.imshow(image.load_img(image_path))
-plt.title(f"Predicted: {class_label} ({prediction:.2f})")
+plt.title(f"Zature: {class_label} ({prediction:.2f})")
 plt.axis('off')
 plt.show()
+#gerekli kütüphaneler
+import torch
+import numpy as np
+import matplotlib.pyplot as plt
+from PIL import Image
+from torchvision import transforms
+from torchvision.models import resnet50
+from pytorch_grad_cam import GradCAM
+from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
+from pytorch_grad_cam.utils.image import show_cam_on_image
+
+#modelimizde resnet50 kullanımı
+model = resnet50(pretrained=True)
+model.evalu()
+
+target_layers = [model.layer4[-1]]
+#dosya yolu
+image_path = 'C:\\Users\\Hazar\\xray_dataset_covid19\\test\\ZATURE\\streptococcus-pneumoniae-pneumonia-temporal-evolution-1-day3.jpg'
+
+# görselin ön işlenmesi 
+def preprocess_image(image_path):
+    transform = transforms.Compose([
+        transforms.Resize((224, 224)),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    ])
+    image = Image.open(image_path).convert('RGB')
+    image = transform(image).unsqueeze(0)
+    return image
+
+input_tensor = preprocess_image(image_path)
+
+def tensor_to_np(image_tensor):
+    image = image_tensor.squeeze(0).permute(1, 2, 0).numpy()
+    image = image - np.min(image)
+    image = image / np.max(image)
+    return image
+
+rgb_img = tensor_to_np(input_tensor)
+
+# GRAD-CAM'ı modelimize dahil etme
+cam = GradCAM(model=model, target_layers=target_layers)
+#bunu gerçek hedef sınıfıyla değiştirebilirsiniz 
+targets = [ClassifierOutputTarget(281)] 
+
+grayscale_cam = cam(input_tensor=input_tensor, targets=targets)
+grayscale_cam = grayscale_cam[0, :]
+
+visualization = show_cam_on_image(rgb_img, grayscale_cam, use_rgb=True)
+#elde edilen görüntünün ekrana verilmesi plt kütüphanesi ile
+plt.imshow(visualization)
+plt.axis('off')
+plt.show()
+
+
+
 
 #yazar=hazarbilgin
